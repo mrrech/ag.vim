@@ -9,3 +9,4 @@ command! -bang -nargs=* -complete=help AgHelp call ag#AgHelp('grep<bang>',<q-arg
 command! -bang -nargs=* -complete=help LAgHelp call ag#AgHelp('lgrep<bang>',<q-args>)
 command! -bang -nargs=* -complete=file AgForCurrentFileDir call ag#Ag('grep<bang>', <q-args>, {'current_file_dir': 1})
 command! -bang -nargs=* -complete=file AgForProjectRoot call ag#Ag('grep<bang>', <q-args>, {'current_file_ext': 1, 'scmdir': 1})
+command! -bang -nargs=+ -complete=file AgForExtension call ag#AgForExtension('grep<bang>', {'scmdir': 1}, <f-args>)

@@ -93,6 +93,20 @@ function! ag#ApplyMapping(dictkey, mapping)
   endfor
 endfunction
 
+function! ag#AgForExtension(cmd, opts, regex, ...)
+  let exts = []
+  " map() is just too much of a pain in the ass
+  for e in a:000
+    call add(exts, substitute(e, '^\.\=\(.*\)', '\\.\1$', ''))
+  endfor
+  if empty(exts)
+    echoerr "No extensions provided."
+  else
+    let extRegex = join(exts, '|')
+    call ag#Ag(a:cmd, a:regex, extend(a:opts, {'specific_file_exts': extRegex}))
+  endif
+endfunction
+
 function! ag#Ag(cmd, args, opts)
   let l:ag_args = ""
   
@@ -103,6 +117,8 @@ function! ag#Ag(cmd, args, opts)
   " Handle the types of files to search
   if has_key(a:opts, 'current_file_ext')
     let l:ag_args = l:ag_args . " -G'\\." . expand('%:e') . "$'"
+  elseif has_key(a:opts, 'specific_file_exts')
+    let l:ag_args = l:ag_args . " -G'" . a:opts['specific_file_exts'] . "'"
   endif
 
   " If no pattern is provided, search for the word under the cursor
@@ -135,7 +151,8 @@ function! ag#Ag(cmd, args, opts)
   try
     let &grepprg=g:agprg
     let &grepformat=g:agformat
-    silent execute a:cmd . " " . escape(l:ag_args, "|")
+    let toExecute = a:cmd . " " . escape(l:ag_args, "|")
+    silent execute toExecute
   finally
     let &grepprg=grepprg_bak
     let &grepformat=grepformat_bak

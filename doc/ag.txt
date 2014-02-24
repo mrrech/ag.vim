@@ -49,16 +49,28 @@ shows the results in a split window.
     Just like |:AgHelp| but instead of the |quickfix| list, matches are placed
     in the current |location-list|.
 
-:AgForCurrentFileDir [options] {pattern}                            *:AgForCurrentFileDir*
+:AgForCurrentFileDir [options] {pattern}                *:AgForCurrentFileDir*
 
     Uses the 'current_file_dir' option to ensure that we limit the search to
     the directory of the current buffer's file
 
-:AgForProjectRoot [options] {pattern}                               *:AgForProjectRoot*
+:AgForProjectRoot [options] {pattern}                      *:AgForProjectRoot*
 
     The notion of a "project" is the directory subtree that starts at the root
     of a source control managed directory.  This is currently defined with
     'g:ag_scm_dirs' variable.
+
+:AgForExtension [options] {pattern}                         *:AgForExtension*
+
+    This command exists to let you specify a number of specific file extensions.
+    It implies the "scmdir" option so if you don't want that you'll have to
+    create a new command on your own (or override this one).  Call it like
+    this: >
+
+      AgForExtension 'search for me' .js .java .txt
+<
+    This will search for 'search for me' in {js}, {java} and {txt} files.  The
+    leading "." on all of the extensions is optional.
 
 Files containing the search term will be listed in the split window, along
 with the line number of the occurrence, once for each occurrence.  <Enter> on
