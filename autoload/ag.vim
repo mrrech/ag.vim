@@ -176,7 +176,7 @@ function! ag#Ag(cmd, args, opts)
       call ag#ApplyMapping('preview_open', '<CR>:' . l:matches_window_prefix . 'open<CR>')
       call ag#ApplyMapping('quit', ':' . l:matches_window_prefix . 'close<CR>')
 
-      call ag#ApplyMapping('vertial_split_silent', ':let b:height=winheight(0)<CR><C-w><CR><C-w>H:' . l:matches_window_prefix . 'open<CR><C-w>J:exe printf(":normal %d\<lt>c-w>_", b:height)<CR>')
+      call ag#ApplyMapping('vertical_split_silent', ':let b:height=winheight(0)<CR><C-w><CR><C-w>H:' . l:matches_window_prefix . 'open<CR><C-w>J:exe printf(":normal %d\<lt>c-w>_", b:height)<CR>')
       " Interpretation:
       " :let b:height=winheight(0)<CR>                      Get the height of the quickfix/location list window
       " <CR><C-w>                                           Open the current item in a new split
