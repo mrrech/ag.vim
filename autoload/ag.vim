@@ -77,7 +77,9 @@ function! ag#FindSCMDir()
   let filedir = expand('%:p:h')
   for candidate in g:ag_scm_dirs
     let dir = finddir(candidate, filedir . ';')
-    if dir != ""
+    if dir == candidate
+      return '.'
+    elseif dir != ""
       let dir = substitute(dir, '/' . candidate, '', '')
       return dir
     endif
