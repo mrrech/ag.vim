@@ -29,48 +29,21 @@ if !exists("g:ag_scm_dirs")
   let g:ag_scm_dirs = [ '.git', '.svn', '.hg' ]
 endif
 
-if !exists("g:ag_results_mapping")
-  let g:ag_results_mapping = {}
-endif
+let s:ag_results_mapping = {
+  \   'open_and_close'          : 'e',
+  \   'open'                    : 'o,<cr>',
+  \   'preview_open'            : 'go',
+  \   'new_tab'                 : 't',
+  \   'new_tab_silent'          : 'T',
+  \   'horizontal_split'        : 'h',
+  \   'horizontal_split_silent' : 'H',
+  \   'vertical_split'          : 'v',
+  \   'vertical_split_silent'   : 'gv',
+  \   'quit'                    : 'q'
+  \ }
 
-if !has_key(g:ag_results_mapping, 'open_and_close')
-  let g:ag_results_mapping['open_and_close'] = 'e'
-endif
-
-if !has_key(g:ag_results_mapping, 'open')
-  let g:ag_results_mapping['open'] = 'o,<cr>'
-endif
-
-if !has_key(g:ag_results_mapping, 'preview_open')
-  let g:ag_results_mapping['preview_open'] = 'go'
-endif
-
-if !has_key(g:ag_results_mapping, 'new_tab')
-  let g:ag_results_mapping['new_tab'] = 't'
-endif
-
-if !has_key(g:ag_results_mapping, 'new_tab_silent')
-  let g:ag_results_mapping['new_tab_silent'] = 'T'
-endif
-
-if !has_key(g:ag_results_mapping, 'horizontal_split')
-  let g:ag_results_mapping['horizontal_split'] = 'h'
-endif
-
-if !has_key(g:ag_results_mapping, 'horizontal_split_silent')
-  let g:ag_results_mapping['horizontal_split_silent'] = 'H'
-endif
-
-if !has_key(g:ag_results_mapping, 'vertical_split')
-  let g:ag_results_mapping['vertical_split'] = 'v'
-endif
-
-if !has_key(g:ag_results_mapping, 'vertical_split_silent')
-  let g:ag_results_mapping['vertical_split_silent'] = 'gv'
-endif
-
-if !has_key(g:ag_results_mapping, 'quit')
-  let g:ag_results_mapping['quit'] = 'q'
+if exists("g:ag_results_mapping_replacements")
+  call extend(s:ag_results_mapping, g:ag_results_mapping_replacements, 'force')
 endif
 
 function! ag#FindSCMDir()
@@ -88,7 +61,7 @@ function! ag#FindSCMDir()
 endfunction
 
 function! ag#ApplyMapping(dictkey, mapping)
-  for key in split(g:ag_results_mapping[a:dictkey], ',')
+  for key in split(s:ag_results_mapping[a:dictkey], ',')
     exe "nnoremap <silent> <buffer> " . key . " " . a:mapping
   endfor
 endfunction
@@ -103,22 +76,25 @@ function! ag#AgForExtension(cmd, opts, regex, ...)
     echoerr "No extensions provided."
   else
     let extRegex = join(exts, '|')
-    call ag#Ag(a:cmd, a:regex, extend(a:opts, {'specific_file_exts': extRegex}))
+    let l:opts = a:opts
+    call ag#Ag(a:cmd, a:regex, extend(l:opts, {'specific_file_exts': extRegex}))
   endif
+endfunction
+
+function! ag#AgFrontend(cmd, args)
+  call ag#Ag(a:cmd, a:args, {})
 endfunction
 
 function! ag#Ag(cmd, args, opts)
   let l:ag_args = ""
   
-  if empty(a:opts)
-    let a:opts = {}
-  endif
+  let l:opts = a:opts
 
   " Handle the types of files to search
-  if has_key(a:opts, 'current_file_ext')
+  if has_key(l:opts, 'current_file_ext')
     let l:ag_args = l:ag_args . " -G'\\." . expand('%:e') . "$'"
-  elseif has_key(a:opts, 'specific_file_exts')
-    let l:ag_args = l:ag_args . " -G'" . a:opts['specific_file_exts'] . "'"
+  elseif has_key(l:opts, 'specific_file_exts')
+    let l:ag_args = l:ag_args . " -G'" . l:opts['specific_file_exts'] . "'"
   endif
 
   " If no pattern is provided, search for the word under the cursor
@@ -131,12 +107,12 @@ function! ag#Ag(cmd, args, opts)
   let l:ag_args = l:ag_args . ' ' . l:pat
 
   " If they want to search from the 'scm' directory
-  if has_key(a:opts, 'scmdir')
+  if has_key(l:opts, 'scmdir')
     let l:ag_args = l:ag_args . ' ' . ag#FindSCMDir()
-  elseif has_key(a:opts, 'current_file_dir')
+  elseif has_key(l:opts, 'current_file_dir')
     let l:ag_args = l:ag_args . ' ' . expand('%:p:h')
-  elseif has_key(a:opts, 'specific_dirs')
-    let l:ag_args = l:ag_args . ' ' . a:opts['specific_dirs']
+  elseif has_key(l:opts, 'specific_dirs')
+    let l:ag_args = l:ag_args . ' ' . l:opts['specific_dirs']
   endif
 
   " Format, used to manage column jump
@@ -205,15 +181,15 @@ function! ag#Ag(cmd, args, opts)
       " :exe printf(":normal %d\<lt>c-w>_", b:height)<CR>   Restore the quickfix/location list window's height from before we opened the match
 
       if g:ag_mapping_message && l:apply_mappings
-        echom "ag.vim keys: " . g:ag_results_mapping['quit'] . "=quit " .
-          \   g:ag_results_mapping['open'] . '/' .
-          \   g:ag_results_mapping['open_and_close'] . '/' .
-          \   g:ag_results_mapping['new_tab'] . '/' .
-          \   g:ag_results_mapping['horizontal_split'] . '/' .
-          \   g:ag_results_mapping['vertical_split'] . "=enter/edit/tab/split/vsplit " .
-          \   g:ag_results_mapping['preview_open'] . '/' .
-          \   g:ag_results_mapping['horizontal_split_silent'] . '/' .
-          \   g:ag_results_mapping['vertical_split_silent'] . "=preview versions of same"
+        echom "ag.vim keys: " . s:ag_results_mapping['quit'] . "=quit " .
+          \   s:ag_results_mapping['open'] . '/' .
+          \   s:ag_results_mapping['open_and_close'] . '/' .
+          \   s:ag_results_mapping['new_tab'] . '/' .
+          \   s:ag_results_mapping['horizontal_split'] . '/' .
+          \   s:ag_results_mapping['vertical_split'] . "=enter/edit/tab/split/vsplit " .
+          \   s:ag_results_mapping['preview_open'] . '/' .
+          \   s:ag_results_mapping['horizontal_split_silent'] . '/' .
+          \   s:ag_results_mapping['vertical_split_silent'] . "=preview versions of same"
       endif
     endif
   else
