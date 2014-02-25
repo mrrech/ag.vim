@@ -201,9 +201,10 @@ gv                  open in vertical split silently.
 
 q                   close the quickfix window.
 
-                                                       *g:ag_results_mapping*
-You can customize all of the mappings using the g:ag_results_mapping
-dictionary.  The default values for the dictionary are: >
+                                          *g:ag_results_mapping_replacements*
+You can customize all of the mappings using the
+g:ag_results_mapping_replacements dictionary.  The default values for the
+dictionary are: >
 
   { 
     'open_and_close':          'e'
@@ -221,7 +222,7 @@ dictionary.  The default values for the dictionary are: >
 Personally, I prefer that <cr> closes the quickfix window, so I've customized
 these as: >
 
-  let g:ag_results_mapping = {
+  let g:ag_results_mapping_replacements = {
   \   'open_and_close': '<cr>',
   \   'open': 'o',
   \ }
