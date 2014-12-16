@@ -25,7 +25,67 @@ if !exists("g:ag_mapping_message")
   let g:ag_mapping_message=1
 endif
 
-function! ag#Ag(cmd, args)
+if !exists("g:ag_scm_dirs")
+  let g:ag_scm_dirs = [ '.git', '.svn', '.hg' ]
+endif
+
+let s:ag_results_mapping = {
+  \   'open_and_close'          : 'e',
+  \   'open'                    : 'o,<cr>',
+  \   'preview_open'            : 'go',
+  \   'new_tab'                 : 't',
+  \   'new_tab_silent'          : 'T',
+  \   'horizontal_split'        : 'h',
+  \   'horizontal_split_silent' : 'H',
+  \   'vertical_split'          : 'v',
+  \   'vertical_split_silent'   : 'gv',
+  \   'quit'                    : 'q'
+  \ }
+
+if exists("g:ag_results_mapping_replacements")
+  call extend(s:ag_results_mapping, g:ag_results_mapping_replacements, 'force')
+endif
+
+function! ag#FindSCMDir()
+  let filedir = expand('%:p:h')
+  for candidate in g:ag_scm_dirs
+    let dir = finddir(candidate, filedir . ';')
+    if dir == candidate
+      return '.'
+    elseif dir != ""
+      let dir = substitute(dir, '/' . candidate, '', '')
+      return dir
+    endif
+  endfor
+  return "~"
+endfunction
+
+function! ag#ApplyMapping(dictkey, mapping)
+  for key in split(s:ag_results_mapping[a:dictkey], ',')
+    exe "nnoremap <silent> <buffer> " . key . " " . a:mapping
+  endfor
+endfunction
+
+function! ag#AgForExtension(cmd, opts, regex, ...)
+  let exts = []
+  " map() is just too much of a pain in the ass
+  for e in a:000
+    call add(exts, substitute(e, '^\.\=\(.*\)', '\\.\1$', ''))
+  endfor
+  if empty(exts)
+    echoerr "No extensions provided."
+  else
+    let extRegex = join(exts, '|')
+    let l:opts = a:opts
+    call ag#Ag(a:cmd, a:regex, extend(l:opts, {'specific_file_exts': extRegex}))
+  endif
+endfunction
+
+function! ag#AgFrontend(cmd, args)
+  call ag#Ag(a:cmd, a:args, {})
+endfunction
+
+function! ag#Ag(cmd, args, opts)
   let l:ag_executable = get(split(g:agprg, " "), 0)
 
   " Ensure that `ag` is installed
@@ -34,12 +94,34 @@ function! ag#Ag(cmd, args)
     return
   endif
 
+  let l:ag_args = ""
+
+  let l:opts = a:opts
+
+  " Handle the types of files to search
+  if has_key(l:opts, 'current_file_ext')
+    let l:ag_args = l:ag_args . " -G'\\." . expand('%:e') . "$'"
+  elseif has_key(l:opts, 'specific_file_exts')
+    let l:ag_args = l:ag_args . " -G'" . l:opts['specific_file_exts'] . "'"
+  endif
+
   " If no pattern is provided, search for the word under the cursor
-  if empty(a:args)
-    let l:grepargs = expand("<cword>")
-  else
-    let l:grepargs = a:args . join(a:000, ' ')
-  end
+  let l:pat = expand('<cword>')
+  if !empty(a:args)
+    let l:pat = a:args
+    let l:pat = substitute(l:pat, '\%(\\<\|\\>\)', '\\b', 'g')
+    let l:pat = substitute(l:pat, '\\', '\\\\', 'g')
+  endif
+  let l:ag_args = l:ag_args . ' ' . l:pat
+
+  " If they want to search from the 'scm' directory
+  if has_key(l:opts, 'scmdir')
+    let l:ag_args = l:ag_args . ' ' . ag#FindSCMDir()
+  elseif has_key(l:opts, 'current_file_dir')
+    let l:ag_args = l:ag_args . ' ' . expand('%:p:h')
+  elseif has_key(l:opts, 'specific_dirs')
+    let l:ag_args = l:ag_args . ' ' . l:opts['specific_dirs']
+  endif
 
   " Format, used to manage column jump
   if a:cmd =~# '-g$'
@@ -56,7 +138,8 @@ function! ag#Ag(cmd, args)
   try
     let &grepprg=g:agprg
     let &grepformat=g:agformat
-    silent execute a:cmd . " " . escape(l:grepargs, '|')
+    let toExecute = a:cmd . " " . escape(l:ag_args, "|")
+    silent execute toExecute
   finally
     let &grepprg=grepprg_bak
     let &grepformat=grepformat_bak
@@ -80,7 +163,7 @@ function! ag#Ag(cmd, args)
 
   " If highlighting is on, highlight the search keyword.
   if exists("g:aghighlight")
-    let @/=a:args
+    let @/ = l:pat
     set hlsearch
   end
 
@@ -88,18 +171,18 @@ function! ag#Ag(cmd, args)
 
   if l:match_count
     if l:apply_mappings
-      nnoremap <silent> <buffer> h  <C-W><CR><C-w>K
-      nnoremap <silent> <buffer> H  <C-W><CR><C-w>K<C-w>b
-      nnoremap <silent> <buffer> o  <CR>
-      nnoremap <silent> <buffer> t  <C-w><CR><C-w>T
-      nnoremap <silent> <buffer> T  <C-w><CR><C-w>TgT<C-W><C-W>
-      nnoremap <silent> <buffer> v  <C-w><CR><C-w>H<C-W>b<C-W>J<C-W>t
+      call ag#ApplyMapping('horizontal_split', '<C-W><CR><C-w>K')
+      call ag#ApplyMapping('horizontal_split_silent', '<C-W><CR><C-w>K<C-w>b')
+      call ag#ApplyMapping('open', '<cr>')
+      call ag#ApplyMapping('new_tab', '<C-w><CR><C-w>T')
+      call ag#ApplyMapping('new_tab_silent', '<C-w><CR><C-w>TgT<C-W><C-W>')
+      call ag#ApplyMapping('vertical_split', '<C-w><CR><C-w>H<C-W>b<C-W>J<C-W>t')
 
-      exe 'nnoremap <silent> <buffer> e <CR><C-w><C-w>:' . l:matches_window_prefix .'close<CR>'
-      exe 'nnoremap <silent> <buffer> go <CR>:' . l:matches_window_prefix . 'open<CR>'
-      exe 'nnoremap <silent> <buffer> q  :' . l:matches_window_prefix . 'close<CR>'
+      call ag#ApplyMapping('open_and_close', '<CR><C-w><C-w>:' . l:matches_window_prefix . 'close<CR>')
+      call ag#ApplyMapping('preview_open', '<CR>:' . l:matches_window_prefix . 'open<CR>')
+      call ag#ApplyMapping('quit', ':' . l:matches_window_prefix . 'close<CR>')
 
-      exe 'nnoremap <silent> <buffer> gv :let b:height=winheight(0)<CR><C-w><CR><C-w>H:' . l:matches_window_prefix . 'open<CR><C-w>J:exe printf(":normal %d\<lt>c-w>_", b:height)<CR>'
+      call ag#ApplyMapping('vertical_split_silent', ':let b:height=winheight(0)<CR><C-w><CR><C-w>H:' . l:matches_window_prefix . 'open<CR><C-w>J:exe printf(":normal %d\<lt>c-w>_", b:height)<CR>')
       " Interpretation:
       " :let b:height=winheight(0)<CR>                      Get the height of the quickfix/location list window
       " <CR><C-w>                                           Open the current item in a new split
@@ -109,19 +192,25 @@ function! ag#Ag(cmd, args)
       " :exe printf(":normal %d\<lt>c-w>_", b:height)<CR>   Restore the quickfix/location list window's height from before we opened the match
 
       if g:ag_mapping_message && l:apply_mappings
-        echom "ag.vim keys: q=quit <cr>/e/t/h/v=enter/edit/tab/split/vsplit go/T/H/gv=preview versions of same"
+        echom "ag.vim keys: " . s:ag_results_mapping['quit'] . "=quit " .
+          \   s:ag_results_mapping['open'] . '/' .
+          \   s:ag_results_mapping['open_and_close'] . '/' .
+          \   s:ag_results_mapping['new_tab'] . '/' .
+          \   s:ag_results_mapping['horizontal_split'] . '/' .
+          \   s:ag_results_mapping['vertical_split'] . "=enter/edit/tab/split/vsplit " .
+          \   s:ag_results_mapping['preview_open'] . '/' .
+          \   s:ag_results_mapping['horizontal_split_silent'] . '/' .
+          \   s:ag_results_mapping['vertical_split_silent'] . "=preview versions of same"
       endif
     endif
   else
-    echom 'No matches for "'.a:args.'"'
+    echom 'No matches for "' . l:pat . '"'
   endif
 endfunction
 
-function! ag#AgFromSearch(cmd, args)
-  let search =  getreg('/')
-  " translate vim regular expression to perl regular expression.
-  let search = substitute(search,'\(\\<\|\\>\)','\\b','g')
-  call ag#Ag(a:cmd, '"' .  search .'" '. a:args)
+function! ag#AgFromSearch(cmd, opts)
+  let search = getreg('/')
+  call ag#Ag(a:cmd, search, a:opts)
 endfunction
 
 function! ag#GetDocLocations()
@@ -135,7 +224,6 @@ function! ag#GetDocLocations()
   return dp
 endfunction
 
-function! ag#AgHelp(cmd,args)
-  let args = a:args.' '.ag#GetDocLocations()
-  call ag#Ag(a:cmd,args)
+function! ag#AgHelp(cmd, args)
+  call ag#Ag(a:cmd, a:args, {'specific_dirs': ag#GetDocLocations()})
 endfunction

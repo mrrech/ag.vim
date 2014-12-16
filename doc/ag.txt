@@ -49,6 +49,29 @@ shows the results in a split window.
     Just like |:AgHelp| but instead of the |quickfix| list, matches are placed
     in the current |location-list|.
 
+:AgForCurrentFileDir [options] {pattern}                *:AgForCurrentFileDir*
+
+    Uses the 'current_file_dir' option to ensure that we limit the search to
+    the directory of the current buffer's file
+
+:AgForProjectRoot [options] {pattern}                      *:AgForProjectRoot*
+
+    The notion of a "project" is the directory subtree that starts at the root
+    of a source control managed directory.  This is currently defined with
+    'g:ag_scm_dirs' variable.
+
+:AgForExtension [options] {pattern}                         *:AgForExtension*
+
+    This command exists to let you specify a number of specific file extensions.
+    It implies the "scmdir" option so if you don't want that you'll have to
+    create a new command on your own (or override this one).  Call it like
+    this: >
+
+      AgForExtension 'search for me' .js .java .txt
+<
+    This will search for 'search for me' in {js}, {java} and {txt} files.  The
+    leading "." on all of the extensions is optional.
+
 Files containing the search term will be listed in the split window, along
 with the line number of the occurrence, once for each occurrence.  <Enter> on
 a line in this window will open the file, and place the cursor on the matching
@@ -113,6 +136,45 @@ the mappings are not applied (see |g:ag_apply_qmappings| and
 |g:ag_apply_lmappings| for more info.  Default 1.  Example: >
   let g:ag_mapping_message=0
 <
+                                                              *g:ag_scm_dirs*
+This is a list containing the directories that should be treated as source
+control management directories.  It's what allows this plugin to limit the
+searches to subtrees of entire source directories.
+
+==============================================================================
+THE AG FUNCTION                                                 *ag-function*
+
+The ag#Ag() function has some special configuration options that you might be
+interested in.  The permutations are annoying so pre-canning all of those
+permutations hasn't been done.  The function looks like >
+
+    ag#Ag(command, arguments, options)
+<
+The first two should always look something like: >
+
+    ag#Ag('grep<bang>', <a-args>, ...)
+<
+But the "options" argument is a dictionary.  You can put the following into
+the dictionary: 
+>
+    'current_file_ext': 1
+<
+    Limits the search to the current buffer's file's extension (e.g. ".vim")
+>
+    'current_file_dir': 1
+<
+    Limits the search to the current buffer's file's directory.
+>
+    'scmdir': 1
+<
+    Limits the search to the "project" root subtree. This will search up the
+    directory tree for the first of the elements in the g:ag_scm_dirs list and
+    use that containing directoy as the directory argument to ag.
+>
+    'specific_dirs': 'directory1 directory2 and so forth'
+<
+    Limits the search to the specific directories given in this string
+
 
 ==============================================================================
 MAPPINGS                                                        *ag-mappings*
@@ -139,4 +201,30 @@ gv                  open in vertical split silently.
 
 q                   close the quickfix window.
 
+                                          *g:ag_results_mapping_replacements*
+You can customize all of the mappings using the
+g:ag_results_mapping_replacements dictionary.  The default values for the
+dictionary are: >
+
+  { 
+    'open_and_close':          'e'
+    'open':                    'o,<cr>'
+    'preview_open':            'go'
+    'new_tab':                 't'
+    'new_tab_silent':          'T'
+    'horizontal_split':        'h'
+    'horizontal_split_silent': 'H'
+    'vertical_split':          'v'
+    'vertical_split_silent':   'gv'
+    'quit':                    'q'
+  }
+<
+Personally, I prefer that <cr> closes the quickfix window, so I've customized
+these as: >
+
+  let g:ag_results_mapping_replacements = {
+  \   'open_and_close': '<cr>',
+  \   'open': 'o',
+  \ }
+<
   vim:tw=78:fo=tcq2:ft=help:norl:
