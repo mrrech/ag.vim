@@ -2,7 +2,11 @@
 
 " Location of the ag utility
 if !exists("g:agprg")
-  let g:agprg="ag --column"
+  let g:agprg="ag"
+endif
+
+if !exists("g:ag_default_options")
+  let g:ag_default_options="--column"
 endif
 
 if !exists("g:ag_apply_qmappings")
@@ -25,12 +29,75 @@ if !exists("g:ag_mapping_message")
   let g:ag_mapping_message=1
 endif
 
-function! ag#Ag(cmd, args)
-  let l:ag_executable = get(split(g:agprg, " "), 0)
+let s:ag_filetype_map = {
+  \   'ada':        '--ada',
+  \   'asm':        '--asm',
+  \   'c':          '--cc',
+  \   'cf':         '--cfmx',
+  \   'clojure':    '--clojure',
+  \   'cpp':        '--cpp',
+  \   'cs':         '--csharp',
+  \   'css':        '--css',
+  \   'erlang':     '--erlang',
+  \   'fortran':    '--fortran',
+  \   'haml':       '--haml',
+  \   'haskell':    '--haskell',
+  \   'html':       '--html',
+  \   'java':       '--java',
+  \   'javascript': '--js',
+  \   'lisp':       '--lisp',
+  \   'lua':        '--lua',
+  \   'm4':         '--m4',
+  \   'make':       '--make',
+  \   'mason':      '--mason',
+  \   'matlab':     '--matlab',
+  \   'objc':       '--objc',
+  \   'objcpp':     '--objcpp',
+  \   'ocaml':      '--ocaml',
+  \   'perl':       '--perl',
+  \   'perl6':      '--perl',
+  \   'php':        '--php',
+  \   'phtml':      '--php',
+  \   'python':     '--python',
+  \   'ruby':       '--ruby',
+  \   'scheme':     '--scheme',
+  \   'sh':         '--shell',
+  \   'sql':        '--sql',
+  \   'st':         '--smalltalk',
+  \   'tcl':        '--tcl',
+  \   'tcsh':       '--shell',
+  \   'tex':        '--tex',
+  \   'vb':         '--vb',
+  \   'verilog':    '--verilog',
+  \   'vhdl':       '--vhdl',
+  \   'vim':        '--vim',
+  \   'xml':        '--xml',
+  \   'yaml':       '--yaml',
+  \   'zsh':        '--zsh',
+  \ }
 
+if exists("g:ag_filetype_map")
+    call extend(s:ag_filetype_map, g:ag_filetype_map, 'force')
+endif
+
+function! ag#AgFileType(cmd, args)
+    let l:filetype = &filetype
+    if empty(l:filetype)
+        echom "Vim couldn't detect the filetype"
+        return
+    elseif !has_key(s:ag_filetype_map, l:filetype)
+        echom "No Ag file type found for '" . l:filetype . "'"
+        return
+    endif
+
+    let l:args = a:args . " " . s:ag_filetype_map[l:filetype]
+    call ag#Ag(a:cmd, l:args)
+endfunction
+
+function! ag#Ag(cmd, args)
   " Ensure that `ag` is installed
-  if !executable(l:ag_executable)
-    echoe "Ag command '" . l:ag_executable . "' was not found. Is the silver searcher installed and on your $PATH?"
+  if !executable(g:agprg)
+    echoe "Ag command '" . g:agprg . "' was not found. Is the silver searcher installed and on your $PATH?"
     return
   endif
 
@@ -38,7 +105,7 @@ function! ag#Ag(cmd, args)
   if empty(a:args)
     let l:grepargs = expand("<cword>")
   else
-    let l:grepargs = a:args . join(a:000, ' ')
+    let l:grepargs = a:args
   end
 
   " Format, used to manage column jump
@@ -54,7 +121,7 @@ function! ag#Ag(cmd, args)
   let grepprg_bak=&grepprg
   let grepformat_bak=&grepformat
   try
-    let &grepprg=g:agprg
+    let &grepprg=g:agprg . " " . g:ag_default_options
     let &grepformat=g:agformat
     silent execute a:cmd . " " . escape(l:grepargs, '|')
   finally
